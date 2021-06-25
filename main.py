@@ -53,12 +53,15 @@ start = datetime.now()
 influx_resp = influx_query_api.query(influx_query)
 print("Influx query done:", datetime.now() - start)
 
-to_insert = defaultdict(list)
+to_insert = defaultdict(dict)
+keys_to_insert = ["date", "datetime"]
 for entry in influx_resp:
     for record in entry.records:
         key = INFLUX_FIELDS_TO_CH[record.get_field()][1]
+        if key not in keys_to_insert:
+            keys_to_insert.append(key)
         record_datetime = record.get_time().replace(tzinfo=None)
-        to_insert[key].append(
+        to_insert[record_datetime].update(
             {
                 "date": record_datetime.date(),
                 "datetime": record_datetime,
@@ -77,10 +80,16 @@ async def push_to_clickhouse():
     )
     async with pool.acquire() as conn:
         async with conn.cursor(cursor=DictCursor) as cursor:
-            for k, v in to_insert.items():
-                await cursor.execute(
-                    f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.bot(date,datetime,{k}) VALUES", v
-                )
+            await cursor.execute(
+                f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.bot({','.join(keys_to_insert)}) VALUES",
+                list(to_insert.values()),
+            )
+            # await cursor.execute(
+            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
+            # )
+            await cursor.execute(
+                f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE unique_users=0"
+            )
 
     print("INSERT done:", datetime.now() - start)
 
