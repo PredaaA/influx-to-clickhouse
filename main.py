@@ -1,5 +1,6 @@
 import asyncio
 import os
+from collections import defaultdict
 from datetime import datetime
 
 import asynch
@@ -31,12 +32,11 @@ INFLUX_FIELDS_TO_CH = {
     "Martine Discord Members Online": ("-", "martine_discord_members_online"),
     "Unique Users": ("Servers", "unique_users"),
 }
-KEYS_TO_INSERT = [v[1] for v in INFLUX_FIELDS_TO_CH.values()]
 
 influx_query = (
     f'from(bucket: "{os.getenv("INFLUX_BUCKET")}") '
-    "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
-    # "|> range(start: 2021-06-25T16:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
+    # "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
+    "|> range(start: 2021-06-25T16:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
     "|> filter(fn: (r) => "
 )
 c = 0
@@ -53,18 +53,20 @@ start = datetime.now()
 influx_resp = influx_query_api.query(influx_query)
 print("Influx query done:", datetime.now() - start)
 
-to_insert = []
+to_insert = defaultdict(list)
 for entry in influx_resp:
     for record in entry.records:
-        to_insert.append(
+        key = INFLUX_FIELDS_TO_CH[record.get_field()][1]
+        record_datetime = record.get_time().replace(tzinfo=None)
+        to_insert[key].append(
             {
-                "date": record.get_time().date(),
-                "datetime": record.get_time(),
-                INFLUX_FIELDS_TO_CH[record.get_field()][1]: int(record.get_value()),
+                "date": record_datetime.date(),
+                "datetime": record_datetime,
+                key: int(record.get_value()),
             }
         )
 
-print("Insert data done:", datetime.now() - start)
+print("Insert data created:", datetime.now() - start)
 
 
 async def push_to_clickhouse():
@@ -75,10 +77,10 @@ async def push_to_clickhouse():
     )
     async with pool.acquire() as conn:
         async with conn.cursor(cursor=DictCursor) as cursor:
-            await cursor.execute(
-                f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.bot({','.join(KEYS_TO_INSERT)}) VALUES",
-                to_insert,
-            )
+            for k, v in to_insert.items():
+                await cursor.execute(
+                    f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.bot(date,datetime,{k}) VALUES", v
+                )
 
     print("INSERT done:", datetime.now() - start)
 
