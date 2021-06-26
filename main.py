@@ -35,8 +35,8 @@ INFLUX_FIELDS_TO_CH = {
 
 influx_query = (
     f'from(bucket: "{os.getenv("INFLUX_BUCKET")}") '
-    # "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
-    "|> range(start: 2021-06-25T16:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
+    "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
+    # "|> range(start: 2021-06-25T16:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
     "|> filter(fn: (r) => "
 )
 c = 0
@@ -53,7 +53,12 @@ start = datetime.now()
 influx_resp = influx_query_api.query(influx_query)
 print("Influx query done:", datetime.now() - start)
 
-to_insert = defaultdict(dict)
+
+def default_dict():
+    return {k[1]: 0 for k in INFLUX_FIELDS_TO_CH.values()}
+
+
+to_insert = defaultdict(default_dict)
 keys_to_insert = ["date", "datetime"]
 for entry in influx_resp:
     for record in entry.records:
@@ -87,9 +92,9 @@ async def push_to_clickhouse():
             # await cursor.execute(
             #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
             # )
-            await cursor.execute(
-                f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE unique_users=0"
-            )
+            # await cursor.execute(
+            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE unique_users=0"
+            # )
 
     print("INSERT done:", datetime.now() - start)
 
