@@ -35,7 +35,7 @@ INFLUX_FIELDS_TO_CH = {
 
 influx_query = (
     f'from(bucket: "{os.getenv("INFLUX_BUCKET")}") '
-    "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
+    "|> range(start: 2018-09-01T00:00:00.000000000Z, stop: now()) "
     # "|> range(start: 2021-06-25T16:00:00.000000000Z, stop: 2021-06-25T17:00:00.000000000Z) "
     "|> filter(fn: (r) => "
 )
@@ -82,6 +82,8 @@ async def push_to_clickhouse():
         host=os.getenv("CLICKHOUSE_HOST"),
         port=os.getenv("CLICKHOUSE_PORT"),
         database=os.getenv("CLICKHOUSE_DATABASE"),
+        user=os.getenv("CLICKHOUSE_USER"),
+        password=os.getenv("CLICKHOUSE_PWD"),
     )
     async with pool.acquire() as conn:
         async with conn.cursor(cursor=DictCursor) as cursor:
