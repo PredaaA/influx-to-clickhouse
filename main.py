@@ -18,6 +18,7 @@ influx_client = InfluxDBClient(
 )
 influx_query_api = influx_client.query_api()
 
+SUB = "bot"
 INFLUX_FIELDS_TO_CH = {
     "Bots": "bots",
     "Humans": "humans",
@@ -32,6 +33,25 @@ INFLUX_FIELDS_TO_CH = {
     "Martine Discord Members Online": "martine_discord_members_online",
     "Unique Users": "unique_users",
 }
+SUB = "guilds"
+INFLUX_FIELDS_TO_CH = {
+    "Total": "total",
+    "Unavailable": "unavailable",
+    "Total Users": "total_users",
+    "Large": "large",
+    "Unchunked": "unchunked",
+    "Server Channels": "total_channels",
+    "Text Channels": "text_channels",
+    "Voice Channels": "voice_channels",
+}
+SUB = "audio"
+INFLUX_FIELDS_TO_CH = {
+    "Active Music Players": "music_players_active",
+    "Inactive Music Players": "music_players_inactive",
+    "Music Players": "music_players_total",
+}
+SUB = "currency"
+INFLUX_FIELDS_TO_CH = {"Currency In Circulation": "marts"}
 
 influx_query = (
     f'from(bucket: "{os.getenv("INFLUX_BUCKET")}") '
@@ -88,14 +108,14 @@ async def push_to_clickhouse():
     async with pool.acquire() as conn:
         async with conn.cursor(cursor=DictCursor) as cursor:
             await cursor.execute(
-                f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.bot({','.join(keys_to_insert)}) VALUES",
+                f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.{SUB}({','.join(keys_to_insert)}) VALUES",
                 list(to_insert.values()),
             )
             # await cursor.execute(
-            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
+            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
             # )
             # await cursor.execute(
-            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.bot DELETE WHERE unique_users=0"
+            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE unique_users=0"
             # )
 
     print("INSERT done:", datetime.now() - start)
