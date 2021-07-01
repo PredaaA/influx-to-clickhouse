@@ -19,18 +19,18 @@ influx_client = InfluxDBClient(
 influx_query_api = influx_client.query_api()
 
 INFLUX_FIELDS_TO_CH = {
-    "Bots": ("-", "bots"),
-    "Humans": ("-", "humans"),
-    "Discord Latency": ("-", "discord_latency"),
-    "Monthly Votes": ("-", "monthlyvotes_topgg"),
-    "Votes": ("-", "votes_topgg"),
-    "Shards": ("-", "shard_count"),
-    "Users in a VC": ("-", "users_in_vc"),
-    "Users in a VC with me": ("-", "users_in_vc_with_bot"),
-    "Martine Discord Member Count": ("-", "martine_discord_member_count"),
-    "Martine Discord Members Connected": ("-", "martine_discord_members_connected"),
-    "Martine Discord Members Online": ("-", "martine_discord_members_online"),
-    "Unique Users": ("Servers", "unique_users"),
+    "Bots": "bots",
+    "Humans": "humans",
+    "Discord Latency": "discord_latency",
+    "Monthly Votes": "monthlyvotes_topgg",
+    "Votes": "votes_topgg",
+    "Shards": "shard_count",
+    "Users in a VC": "users_in_vc",
+    "Users in a VC with me": "users_in_vc_with_bot",
+    "Martine Discord Member Count": "martine_discord_member_count",
+    "Martine Discord Members Connected": "martine_discord_members_connected",
+    "Martine Discord Members Online": "martine_discord_members_online",
+    "Unique Users": "unique_users",
 }
 
 influx_query = (
@@ -41,7 +41,7 @@ influx_query = (
 )
 c = 0
 for k, v in INFLUX_FIELDS_TO_CH.items():
-    influx_query += f' {"or" if c > 0 else ""} (r._measurement == "{v[0]}" and r._field == "{k}")'
+    influx_query += f' {"or" if c > 0 else ""} (r._field == "{k}")'
     c += 1
 influx_query += (
     ') |> aggregateWindow(every: 5m, fn: mean, createEmpty: false) |> yield(name: "mean")'
@@ -55,14 +55,14 @@ print("Influx query done:", datetime.now() - start)
 
 
 def default_dict():
-    return {k[1]: 0 for k in INFLUX_FIELDS_TO_CH.values()}
+    return {k: 0 for k in INFLUX_FIELDS_TO_CH.values()}
 
 
 to_insert = defaultdict(default_dict)
 keys_to_insert = ["date", "datetime"]
 for entry in influx_resp:
     for record in entry.records:
-        key = INFLUX_FIELDS_TO_CH[record.get_field()][1]
+        key = INFLUX_FIELDS_TO_CH[record.get_field()]
         if key not in keys_to_insert:
             keys_to_insert.append(key)
         record_datetime = record.get_time().replace(tzinfo=None)
