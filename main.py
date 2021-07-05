@@ -3,11 +3,9 @@ import os
 from collections import defaultdict
 from datetime import datetime
 
-import asynch
-from asynch.cursors import DictCursor
+from aiochclient.client import ChClient
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
-from influxdb_client.client.flux_table import FluxRecord
 
 print("Start", datetime.now())
 
@@ -75,7 +73,7 @@ print("Influx query done:", datetime.now() - start)
 
 
 def default_dict():
-    return {k: 0 for k in INFLUX_FIELDS_TO_CH.values()}
+    return {k: None for k in INFLUX_FIELDS_TO_CH.values()}
 
 
 to_insert = defaultdict(default_dict)
@@ -98,25 +96,23 @@ print("Insert data created:", datetime.now() - start)
 
 
 async def push_to_clickhouse():
-    pool = await asynch.create_pool(
-        host=os.getenv("CLICKHOUSE_HOST"),
-        port=os.getenv("CLICKHOUSE_PORT"),
+    ch_client = ChClient(
+        url=os.getenv("CLICKHOUSE_URL"),
         database=os.getenv("CLICKHOUSE_DATABASE"),
         user=os.getenv("CLICKHOUSE_USER"),
         password=os.getenv("CLICKHOUSE_PWD"),
     )
-    async with pool.acquire() as conn:
-        async with conn.cursor(cursor=DictCursor) as cursor:
-            await cursor.execute(
-                f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.{SUB}({','.join(keys_to_insert)}) VALUES",
-                list(to_insert.values()),
-            )
-            # await cursor.execute(
-            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
-            # )
-            # await cursor.execute(
-            #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE unique_users=0"
-            # )
+    await ch_client.execute(
+        f"INSERT INTO {os.getenv('CLICKHOUSE_TABLE')}.{SUB}({','.join(keys_to_insert)}) VALUES",
+        list(to_insert.values()),
+    )
+    # await cursor.execute(
+    #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE toYYYYMMDD(datetime) BETWEEN 20210624 AND 20210626"
+    # )
+    # await cursor.execute(
+    #     f"ALTER TABLE {os.getenv('CLICKHOUSE_TABLE')}.{SUB} DELETE WHERE unique_users=0"
+    # )
+    await ch_client.close()
 
     print("INSERT done:", datetime.now() - start)
 
